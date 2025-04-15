@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <title>WaldMomente Beobachtungen</title>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
+</head>
+<body>
+  <h1>Letzte Beobachtungen</h1>
+  <ul id="beobachtungen"></ul>
+
+  <script>
+    const supabaseUrl = 'https://gzhxhpvpllexfpkfyjxk.supabase.co';
+    const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imd6aHhocHZwbGxleGZwa2Z5anhrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDQ3NTE2ODksImV4cCI6MjA2MDMyNzY4OX0.sDWiBYyfuBIM_cni1FGDMbrGOw2ZKb8-XRbTA6Qsg8E';
+    const supabase = supabase.createClient(supabaseUrl, supabaseKey);
+
+    async function ladeBeobachtungen() {
+      const { data, error } = await supabase
+        .from('beobachtungen')
+        .select('*')
+        .order('datum', { ascending: false });
+
+      const list = document.getElementById("beobachtungen");
+      data.forEach(beo => {
+        const item = document.createElement("li");
+        item.innerText = `${beo.typ} in ${beo.ort} am ${beo.datum}`;
+        list.appendChild(item);
+      });
+    }
+
+    ladeBeobachtungen();
+  </script>
+</body>
+</html>

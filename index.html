@@ -4,80 +4,119 @@
   <meta charset="UTF-8">
   <title>WaldMomente</title>
   <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet.heat/dist/leaflet-heat.js" />
   <style>
     body {
       font-family: sans-serif;
-      max-width: 600px;
-      margin: auto;
-      padding: 1em;
+      margin: 0;
+      display: flex;
+      height: 100vh;
     }
-    #map { height: 400px; margin-top: 1em; }
-    form { margin-top: 1em; display: flex; flex-direction: column; gap: 0.5em; }
-    input, select, button { padding: 0.5em; }
+    #sidebar {
+      width: 300px;
+      padding: 1em;
+      border-right: 1px solid #ccc;
+      overflow-y: auto;
+      box-sizing: border-box;
+    }
+    #map {
+      flex: 1;
+    }
+    .controls {
+      display: flex;
+      flex-direction: column;
+      gap: 0.5em;
+      margin-bottom: 1em;
+    }
+    .observation {
+      border-bottom: 1px solid #ccc;
+      padding: 0.5em 0;
+    }
+    form {
+      margin-top: 1em;
+      display: flex;
+      flex-direction: column;
+      gap: 0.5em;
+    }
+    input, select, button {
+      padding: 0.5em;
+    }
   </style>
 </head>
 <body>
-  <h1>🌲 WaldMomente</h1>
+  <div id="sidebar">
+    <h1>🌲 WaldMomente</h1>
 
-  <div id="auth">
-    <h2>Anmeldung</h2>
-    <input id="email" type="email" placeholder="E-Mail">
-    <input id="password" type="password" placeholder="Passwort">
-    <button onclick="signUp()">Registrieren</button>
-    <button onclick="signIn()">Einloggen</button>
+    <div id="auth">
+      <h2>Anmeldung</h2>
+      <input id="email" type="email" placeholder="E-Mail">
+      <input id="password" type="password" placeholder="Passwort">
+      <button onclick="signUp()">Registrieren</button>
+      <button onclick="signIn()">Einloggen</button>
+    </div>
+
+    <div id="app" style="display:none;">
+      <p>👋 Willkommen, <span id="user-email"></span></p>
+
+      <div class="controls">
+        <label>
+          Sortieren nach:
+          <select id="sortBy" onchange="updateList()">
+            <option value="typ">Typ</option>
+            <option value="ort">Ort</option>
+          </select>
+        </label>
+        <button onclick="toggleHeatmap()">🔆 Heatmap ein/aus</button>
+      </div>
+
+      <form onsubmit="addBeobachtung(event)">
+        <h3>Beobachtung eintragen</h3>
+        <select id="typ">
+          <option value="Tier">Tier</option>
+          <option value="Pflanze">Pflanze</option>
+          <option value="Pilz">Pilz</option>
+          <option value="Landschaft">Landschaft</option>
+        </select>
+        <input id="beschreibung" placeholder="Beschreibung">
+        <input id="ort" placeholder="Ort">
+        <button type="submit">Speichern</button>
+      </form>
+
+      <h3>Beobachtungen</h3>
+      <div id="observationList">Noch keine geladen...</div>
+    </div>
   </div>
 
-  <div id="app" style="display:none;">
-    <p>👋 Willkommen, <span id="user-email"></span></p>
-    <div id="map"></div>
+  <div id="map"></div>
 
-    <form onsubmit="addBeobachtung(event)">
-      <h3>Beobachtung eintragen</h3>
-      <select id="typ">
-        <option value="Tier">Tier</option>
-        <option value="Pflanze">Pflanze</option>
-        <option value="Pilz">Pilz</option>
-        <option value="Landschaft">Landschaft</option>
-      </select>
-      <input id="beschreibung" placeholder="Beschreibung">
-      <input id="ort" placeholder="Ort">
-      <button type="submit">Speichern</button>
-    </form>
-  </div>
-
-  <!-- Leaflet laden -->
   <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+  <script src="https://unpkg.com/leaflet.heat/dist/leaflet-heat.js"></script>
 
-  <!-- App-Code -->
   <script type="module">
-    import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm'
+    import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm';
 
     const supabaseUrl = 'https://gzhxhpvpllexfpkfyjxk.supabase.co';
-    const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imd6aHhocHZwbGxleGZwa2Z5anhrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDQ3NTE2ODksImV4cCI6MjA2MDMyNzY4OX0.sDWiBYyfuBIM_cni1FGDMbrGOw2ZKb8-XRbTA6Qsg8E'; // dein echter Key
+    const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imd6aHhocHZwbGxleGZwa2Z5anhrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDQ3NTE2ODksImV4cCI6MjA2MDMyNzY4OX0.sDWiBYyfuBIM_cni1FGDMbrGOw2ZKb8-XRbTA6Qsg8E';
     const supabase = createClient(supabaseUrl, supabaseKey);
 
     let currentUser = null;
     let selectedLatLng = null;
+    let map, heatLayer;
+    let allData = [];
+    let marker;
 
     window.signUp = async function () {
       const email = document.getElementById('email').value;
       const password = document.getElementById('password').value;
-
       const { error } = await supabase.auth.signUp({ email, password });
-
-      if (error) {
-        alert("Fehler bei Registrierung: " + error.message);
-      } else {
-        alert("Registrierung erfolgreich! Bitte E-Mail bestätigen.");
-      }
+      if (error) alert("Fehler bei Registrierung: " + error.message);
+      else alert("Registrierung erfolgreich! Bitte E-Mail bestätigen.");
     }
 
     window.signIn = async function () {
       const email = document.getElementById('email').value;
       const password = document.getElementById('password').value;
-
       const { data, error } = await supabase.auth.signInWithPassword({ email, password });
-
       if (error) {
         alert(error.message);
       } else {
@@ -109,20 +148,91 @@
         }]);
 
       if (error) alert(error.message);
-      else alert("Beobachtung gespeichert.");
+      else {
+        alert("Beobachtung gespeichert.");
+        loadBeobachtungen(map.getBounds());
+      }
     }
 
     function initMap() {
-      const map = L.map('map').setView([48.5, 8.4], 10);
+      map = L.map('map').setView([48.5, 8.4], 10);
       L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
 
-      const marker = L.marker([0, 0], { draggable: true }).addTo(map);
+      marker = L.marker([0, 0], { draggable: true }).addTo(map);
       marker.setOpacity(0);
 
       map.on('click', function (e) {
         marker.setLatLng(e.latlng).setOpacity(1);
         selectedLatLng = e.latlng;
       });
+
+      map.on('moveend', () => {
+        loadBeobachtungen(map.getBounds());
+      });
+
+      loadBeobachtungen(map.getBounds());
+    }
+
+    async function loadBeobachtungen(bounds) {
+      if (!currentUser) return;
+
+      const { data, error } = await supabase
+        .from('beobachtungen')
+        .select('*')
+        .eq('nutzer_id', currentUser.id)
+        .gte('lat', bounds.getSouth())
+        .lte('lat', bounds.getNorth())
+        .gte('lng', bounds.getWest())
+        .lte('lng', bounds.getEast());
+
+      if (error) {
+        console.error("Fehler beim Laden:", error.message);
+        return;
+      }
+
+      allData = data;
+      updateList();
+      updateHeatmap();
+    }
+
+    function updateList() {
+      const sortBy = document.getElementById('sortBy').value;
+      const list = document.getElementById('observationList');
+      list.innerHTML = '';
+
+      if (!allData.length) {
+        list.innerText = 'Keine Beobachtungen in diesem Bereich.';
+        return;
+      }
+
+      const sorted = [...allData].sort((a, b) => a[sortBy]?.localeCompare(b[sortBy]));
+
+      for (const obs of sorted) {
+        const div = document.createElement('div');
+        div.className = 'observation';
+        div.innerHTML = `<strong>${obs.typ}</strong><br>${obs.beschreibung}<br><em>${obs.ort}</em>`;
+        list.appendChild(div);
+      }
+    }
+
+    let heatmapVisible = false;
+    function toggleHeatmap() {
+      heatmapVisible = !heatmapVisible;
+      updateHeatmap();
+    }
+
+    function updateHeatmap() {
+      if (heatLayer) map.removeLayer(heatLayer);
+
+      const points = allData
+        .filter(obs => obs.lat && obs.lng)
+        .map(obs => [obs.lat, obs.lng, 1]);
+
+      heatLayer = L.heatLayer(points, { radius: 25, blur: 15, maxZoom: 12 });
+
+      if (heatmapVisible) {
+        heatLayer.addTo(map);
+      }
     }
   </script>
 </body>

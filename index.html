@@ -42,12 +42,6 @@
     </form>
   </div>
 
-  <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
-  <script>
-    const supabaseUrl = 'https://gzhxhpvpllexfpkfyjxk.supabase.co';
-    const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imd6aHhocHZwbGxleGZwa2Z5anhrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDQ3NTE2ODksImV4cCI6MjA2MDMyNzY4OX0.sDWiBYyfuBIM_cni1FGDMbrGOw2ZKb8-XRbTA6Qsg8E';
-    const supabase = supabase.createClient(supabaseUrl, supabaseKey);
-
     let currentUser = null;
     let selectedLatLng = null;
 
@@ -123,6 +117,12 @@
       });
     }
   </script>
+  <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+  <script>
+    const supabaseUrl = 'https://gzhxhpvpllexfpkfyjxk.supabase.co';
+    const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imd6aHhocHZwbGxleGZwa2Z5anhrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDQ3NTE2ODksImV4cCI6MjA2MDMyNzY4OX0.sDWiBYyfuBIM_cni1FGDMbrGOw2ZKb8-XRbTA6Qsg8E';
+    const supabase = supabase.createClient(supabaseUrl, supabaseKey);
+
 </body>
 </html>
 
